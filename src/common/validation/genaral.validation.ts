@@ -1,9 +1,10 @@
 import { z } from "zod";
 
-
-export const genearalValidationFeilds={
-    email: z.email().min(2).max(20),
-    password: z.string(),
-    username:z.string(),
-    confirmPassword:z.string()
-}
+export const generalValidationFeilds = {
+  email: z.email(),
+  password: z.string(),
+  username: z.string(),
+  confirmPassword: z.string(),
+  phone: z.string(),
+  otp:z.string().regex(/^\d[6]$/)
+};

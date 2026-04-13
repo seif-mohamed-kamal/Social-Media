@@ -43,16 +43,20 @@ const validators = __importStar(require("./auth.validation"));
 const validation_middleware_1 = require("../../middleware/validation.middleware");
 const router = (0, express_1.Router)();
 router.post("/login", (0, validation_middleware_1.validation)(validators.loginSchema), async (req, res, next) => {
-    const data = {
-        email: "seif",
-        password: "123",
-    };
-    const result = auth_service_1.default.login(data);
-    return (0, response_1.successResponse)({ res, status: 201, result });
+    const result = await auth_service_1.default.login(req.body, `${req.protocol}://${req.host}`);
+    return (0, response_1.successResponse)({ res, status: 200, result });
 });
 router.post("/signup", (0, validation_middleware_1.validation)(validators.signupSchema), async (req, res, next) => {
     const data = req.body;
     const result = await auth_service_1.default.signup(data);
     return (0, response_1.successResponse)({ res, status: 201, result });
+});
+router.patch("/confirmEmail", async (req, res, next) => {
+    const result = await auth_service_1.default.cofirmEmail(req.body);
+    return (0, response_1.successResponse)({ res, status: 200, result });
+});
+router.patch("/resendOtp", async (req, res, next) => {
+    const result = await auth_service_1.default.resendConfirmEmail(req.body);
+    return (0, response_1.successResponse)({ res, status: 200, result });
 });
 exports.default = router;

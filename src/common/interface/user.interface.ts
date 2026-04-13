@@ -3,6 +3,7 @@ import { GenderEnum, ProviderEnum, RoleEnum } from "../enum";
 export interface IUser{
     firstName:string;
     lastName:string;
+    username:string;
     email:String;
     password:string;
     age:number
