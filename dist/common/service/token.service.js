@@ -3,23 +3,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TokenService = exports.ROLE_ENUM = exports.TOKEN_TYPE_ENUM = void 0;
+exports.TokenService = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const crypto_1 = require("crypto");
 const repository_1 = require("../../DB/repository");
 const redis_service_1 = require("./redis.service");
 const config_service_1 = require("../../config/config.service");
-var TOKEN_TYPE_ENUM;
-(function (TOKEN_TYPE_ENUM) {
-    TOKEN_TYPE_ENUM["ACCESS"] = "access";
-    TOKEN_TYPE_ENUM["REFRESH"] = "refresh";
-    TOKEN_TYPE_ENUM["RESET"] = "reset";
-})(TOKEN_TYPE_ENUM || (exports.TOKEN_TYPE_ENUM = TOKEN_TYPE_ENUM = {}));
-var ROLE_ENUM;
-(function (ROLE_ENUM) {
-    ROLE_ENUM["USER"] = "user";
-    ROLE_ENUM["ADMIN"] = "admin";
-})(ROLE_ENUM || (exports.ROLE_ENUM = ROLE_ENUM = {}));
+const enum_1 = require("../enum");
 class TokenService {
     userModel;
     redis;
@@ -35,7 +25,7 @@ class TokenService {
     }
     async detectRole(role) {
         switch (role) {
-            case ROLE_ENUM.ADMIN:
+            case enum_1.RoleEnum.ADMIN:
                 return {
                     accessSignature: config_service_1.JWT_SECRET_ADMIN,
                     refreshSignature: config_service_1.JWT_SECRET_ADMIN_refresh,
@@ -49,18 +39,18 @@ class TokenService {
                 };
         }
     }
-    async generateTokenSignature({ tokenType = TOKEN_TYPE_ENUM.ACCESS, level, }) {
+    async generateTokenSignature({ tokenType = enum_1.TokenTypeEnum.ACCESS, level, }) {
         const { accessSignature, refreshSignature, resetSignature } = await this.detectRole(level);
         switch (tokenType) {
-            case TOKEN_TYPE_ENUM.REFRESH:
+            case enum_1.TokenTypeEnum.REFRESH:
                 return refreshSignature;
-            case TOKEN_TYPE_ENUM.RESET:
+            case enum_1.TokenTypeEnum.RESET:
                 return resetSignature;
             default:
                 return accessSignature;
         }
     }
-    async decodeToken({ token, tokenType = TOKEN_TYPE_ENUM.ACCESS, }) {
+    async decodeToken({ token, tokenType = enum_1.TokenTypeEnum.ACCESS, }) {
         const decoded = jsonwebtoken_1.default.decode(token);
         if (!decoded) {
             throw new Error("Invalid token");
@@ -75,7 +65,7 @@ class TokenService {
             level,
         });
         if (decodedToken.jti &&
-            (await this.redis.get(this.revokeTokenKey({
+            (await this.redis.get(this.redis.revokeTokenKey({
                 userId: decodedToken.sub,
                 jti: decodedToken.jti,
             })))) {
@@ -90,20 +80,19 @@ class TokenService {
         }
         if (user.changeCreadintialTime &&
             verifiedData.iat &&
-            user.changeCreadintialTime.getTime() >
-                verifiedData.iat * 1000) {
+            user.changeCreadintialTime.getTime() > verifiedData.iat * 1000) {
             throw new Error("Token expired due to credential change");
         }
         return { user, decodedToken: verifiedData };
     }
     async createLoginCredentials(user, issuer, tokenType) {
         const jwtid = (0, crypto_1.randomUUID)();
-        if (tokenType === TOKEN_TYPE_ENUM.RESET) {
+        if (tokenType === enum_1.TokenTypeEnum.RESET) {
             return this.generateToken({
                 payload: { sub: user._id },
                 secret: config_service_1.JWT_SECRET_RESET,
                 options: {
-                    audience: [TOKEN_TYPE_ENUM.RESET, user.role],
+                    audience: [enum_1.TokenTypeEnum.RESET, user.role],
                     expiresIn: "15m",
                     jwtid,
                 },
@@ -115,7 +104,7 @@ class TokenService {
             secret: accessSignature,
             options: {
                 issuer,
-                audience: [TOKEN_TYPE_ENUM.ACCESS, user.role],
+                audience: [enum_1.TokenTypeEnum.ACCESS, user.role],
                 expiresIn: "30m",
                 jwtid,
             },
@@ -125,15 +114,17 @@ class TokenService {
             secret: refreshSignature,
             options: {
                 issuer,
-                audience: [TOKEN_TYPE_ENUM.REFRESH, user.role],
+                audience: [enum_1.TokenTypeEnum.REFRESH, user.role],
                 expiresIn: "365d",
                 jwtid,
             },
         });
         return { accessToken, refreshToken };
     }
-    revokeTokenKey({ userId, jti, }) {
-        return `REVOKED:${userId}:${jti}`;
+    async createRevokeToken({ userId, jti, ttl }) {
+        await this.redis.set({ key: this.redis.revokeTokenKey({ userId, jti }), value: jti, ttl: ttl });
+        return;
     }
+    ;
 }
 exports.TokenService = TokenService;

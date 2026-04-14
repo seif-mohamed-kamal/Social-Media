@@ -8,5 +8,5 @@ exports.generalValidationFeilds = {
     username: zod_1.z.string(),
     confirmPassword: zod_1.z.string(),
     phone: zod_1.z.string(),
-    otp: zod_1.z.string().regex(/^\d[6]$/)
+    otp: zod_1.z.string().regex(/^\d{6}$/)
 };

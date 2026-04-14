@@ -22,6 +22,7 @@ import { RedisService, redisService } from "../../common/service";
 import { emailEnum, ProviderEnum } from "../../common/enum";
 import { emitEmail } from "../../common/utils/mailer/event.mailer";
 import { TokenService } from "../../common/service/token.service";
+import { OAuth2Client } from "google-auth-library";
 
 class AuthinticationService {
   private readonly userModel: userRepository;
@@ -31,8 +32,7 @@ class AuthinticationService {
   constructor() {
     this.userModel = new userRepository();
     this.redis = redisService;
-  this.tokenService = new TokenService();
-
+    this.tokenService = new TokenService();
   }
 
   private async sendEmailOtp({
@@ -225,18 +225,22 @@ class AuthinticationService {
     // console.log({ maxTrails });
     if (maxTrails >= 5) {
       await this.redis.set({
-        key:this.redis.blockUser({ email, subject: emailEnum.LOGIN_ATTEMPT }),
-        value:1,
-        ttl:5 * 60
-    });
-      throw new BadRequestException(`sorry you reached the max trials please try again after 5 minutes`,);
+        key: this.redis.blockUser({ email, subject: emailEnum.LOGIN_ATTEMPT }),
+        value: 1,
+        ttl: 5 * 60,
+      });
+      throw new BadRequestException(
+        `sorry you reached the max trials please try again after 5 minutes`
+      );
     }
 
     if (
-      !(await comapareeHash({ plainText: password,  ciphetText: user.password }))
+      !(await comapareeHash({ plainText: password, ciphetText: user.password }))
     ) {
-      await this.redis.incr(this.redis.maxAttemplogin({ email, subject: emailEnum.LOGIN_ATTEMPT }));
-      throw new NotFoundException( "Invalid login credintials" );
+      await this.redis.incr(
+        this.redis.maxAttemplogin({ email, subject: emailEnum.LOGIN_ATTEMPT })
+      );
+      throw new NotFoundException("Invalid login credintials");
     }
     const maxAttemp = await this.redis.allKeysByPrefix(
       this.redis.maxAttemplogin({ email, subject: emailEnum.LOGIN_ATTEMPT })
@@ -245,5 +249,147 @@ class AuthinticationService {
     await this.redis.deleteKey(maxAttemp);
     return await this.tokenService.createLoginCredentials(user, issuer);
   }
+
+  private async verifyGoogleAccount(idToken: string) {
+    const client = new OAuth2Client();
+    const ticket = await client.verifyIdToken({
+      idToken: idToken,
+      audience:
+        "920851061985-v8jgoddrenaodbku25tfadgg4a83qs43.apps.googleusercontent.com", // Specify the WEB_CLIENT_ID of the app that accesses the backend
+      // Or, if multiple clients access the backend:
+      //[WEB_CLIENT_ID_1, WEB_CLIENT_ID_2, WEB_CLIENT_ID_3]
+    });
+    const payload = ticket.getPayload();
+    // console.log(payload);
+    return payload;
+  }
+
+  public async signupWithGmail(idToken: string, issuer: string) {
+    // console.log(idToken);
+    const payload = (await this.verifyGoogleAccount(idToken)) as any;
+    // console.log(payload);
+
+    const checkEmailExist = await this.userModel.findOne({
+      filter: { email: payload.email as string },
+    });
+    if (checkEmailExist) {
+      if (checkEmailExist.provider != ProviderEnum.GOOGLE) {
+        throw new ConflictException("invalid login provider");
+      }
+      return {
+        status: 200,
+        credintials: await this.loginWithGmail(idToken, issuer),
+      };
+    }
+    const user = await this.userModel.createOne({
+      data: {
+        firstName: payload.given_name,
+        lastName: payload.family_name,
+        email: payload.email,
+        profilePicture: payload.picture,
+        provider: ProviderEnum.GOOGLE,
+      },
+    });
+    return {
+      status: 201,
+      credintials: await this.tokenService.createLoginCredentials(user, issuer),
+    };
+  }
+
+  public async loginWithGmail(idToken: string, issuer: string) {
+    console.log(idToken);
+    const payload = (await this.verifyGoogleAccount(idToken)) as any;
+    console.log(payload);
+
+    const user = await this.userModel.findOne({
+      filter: { email: payload.email as string, provider: ProviderEnum.GOOGLE },
+    });
+    console.log(user);
+    if (!user) {
+      throw new NotFoundException("user Not registred");
+    }
+
+    return await this.tokenService.createLoginCredentials(user, issuer);
+  }
+
+  public async forgetPassword  ({email}:{email:string})  {
+    const user = await this.userModel.findOne({
+      filter: {
+        email,
+        confirmEmail: { $exists: true },
+        provider: ProviderEnum.SYSTEM,
+      },
+    });
+  
+    if (!user) {
+      throw new NotFoundException( "user not found",);
+    }
+    if (
+      !(await this.redis.get(this.redis.maxAttemptOtp({ email, subject: emailEnum.FORGET_PASSWORD })))
+    ) {
+      await this.redis.set({
+        key:this.redis.maxAttemptOtp({ email, subject: emailEnum.FORGET_PASSWORD }),
+        value:0,
+        ttl:360
+    });
+    }
+    await this.sendEmailOtp({ email, subject: emailEnum.FORGET_PASSWORD });
+  
+    return true;
+  };
+  
+  public async verifyForgetPasswordOtp  ({email , otp}:{email:string , otp:string}) {
+    const user = await this.userModel.findOne({
+      filter: {
+        email,
+        confirmEmail: { $exists: true },
+        provider: ProviderEnum.SYSTEM,
+      },
+    });
+  
+    if (!user) {
+      throw new NotFoundException( "user not found or you elready vetified your account",);
+    }
+  
+    const hashOtp = await this.redis.get(
+      this.redis.redisOtp({ email, subject: emailEnum.FORGET_PASSWORD })
+    );
+    if (!hashOtp) {
+      throw new NotFoundException( "OTP Expired" );
+    }
+  
+    if (!(await comapareeHash({ plainText: otp, ciphetText: hashOtp }))) {
+      throw new ConflictException( "Invalid OTP" );
+    }
+  
+    return true;
+  };
+  
+  public async resetPassword  ({email , otp , password}:{email:string , otp:string , password:string})  {
+  
+    await this.verifyForgetPasswordOtp({ email,otp });
+  
+    const user = await this.userModel.updateOne({
+      filter: {
+        email,
+        confirmEmail: { $exists: true },
+        provider: ProviderEnum.SYSTEM,
+      },
+      update: {
+        password: await generateHash({ plainText: password }),
+        changeCredentialsTime: new Date(),
+      },
+    });
+    // console.log({ user : user.password });
+    console.log({ usercont: user.matchedCount });
+    if (!user.matchedCount) {
+      throw new NotFoundException( "User Not Found" );
+    }
+    const tokenKeys = await this.redis.allKeysByPrefix(
+      this.redis.redisOtp({ email, subject: emailEnum.FORGET_PASSWORD })
+    );
+    await this.redis.deleteKey(tokenKeys);
+    return true;
+  };
 }
 export default new AuthinticationService();

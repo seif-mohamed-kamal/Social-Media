@@ -97,7 +97,7 @@ class RedisService {
     async deleteKey(key) {
         try {
             const result = await this.client.del(key);
-            return result === 1;
+            return result > 0;
         }
         catch (error) {
             console.error("Redis DELETE error:", error);

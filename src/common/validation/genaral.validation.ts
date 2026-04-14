@@ -6,5 +6,5 @@ export const generalValidationFeilds = {
   username: z.string(),
   confirmPassword: z.string(),
   phone: z.string(),
-  otp:z.string().regex(/^\d[6]$/)
+  otp:z.string().regex(/^\d{6}$/ )
 };

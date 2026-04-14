@@ -37,43 +37,32 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const auth_service_1 = __importDefault(require("./auth.service"));
 const response_1 = require("../../common/response");
-const validators = __importStar(require("./auth.validation"));
+const middleware_1 = require("../../middleware");
+const user_service_1 = __importDefault(require("./user.service"));
+const enum_1 = require("../../common/enum");
 const validation_middleware_1 = require("../../middleware/validation.middleware");
+const validators = __importStar(require("./user.validation"));
 const router = (0, express_1.Router)();
-router.post("/login", (0, validation_middleware_1.validation)(validators.loginSchema), async (req, res, next) => {
-    const result = await auth_service_1.default.login(req.body, `${req.protocol}://${req.host}`);
+router.get("/profile", (0, middleware_1.authintication)(), async (req, res, next) => {
+    const result = await user_service_1.default.profile(req.user);
     return (0, response_1.successResponse)({ res, status: 200, result });
 });
-router.post("/signup", (0, validation_middleware_1.validation)(validators.signupSchema), async (req, res, next) => {
-    const data = req.body;
-    const result = await auth_service_1.default.signup(data);
-    return (0, response_1.successResponse)({ res, status: 201, result });
+router.post("/logout", (0, middleware_1.authintication)(), async (req, res, next) => {
+    const { flag } = req.body;
+    const status = await user_service_1.default.logout(flag, req.user, req.decoded);
+    return (0, response_1.successResponse)({ res, status });
 });
-router.patch("/confirmEmail", async (req, res, next) => {
-    const result = await auth_service_1.default.cofirmEmail(req.body);
+router.get("/rotate-token", (0, middleware_1.authintication)({ tokenType: enum_1.TokenTypeEnum.REFRESH }), async (req, res, next) => {
+    const result = await user_service_1.default.rotateToken(req.user, `${req.protocol}://${req.host}`, req.decoded);
     return (0, response_1.successResponse)({ res, status: 200, result });
 });
-router.patch("/resendOtp", async (req, res, next) => {
-    const result = await auth_service_1.default.resendConfirmEmail(req.body);
-    return (0, response_1.successResponse)({ res, status: 200, result });
-});
-router.post("/signup/gmail", async (req, res, next) => {
-    const { idToken } = req.body;
-    const { status, credintials } = await auth_service_1.default.signupWithGmail(idToken, `${req.protocol}://${req.host}`);
-    return (0, response_1.successResponse)({ res, status, result: { credintials } });
-});
-router.post("/forgetpassword", async (req, res, next) => {
-    const result = await auth_service_1.default.forgetPassword(req.body);
-    return (0, response_1.successResponse)({ res, status: 200, result });
-});
-router.patch("/verify-forget-password-otp", async (req, res, next) => {
-    const result = await auth_service_1.default.verifyForgetPasswordOtp(req.body);
-    return (0, response_1.successResponse)({ res, status: 200, result });
-});
-router.patch("/reset-password", async (req, res, next) => {
-    const result = await auth_service_1.default.resetPassword(req.body);
-    return (0, response_1.successResponse)({ res, status: 200, result });
+router.patch("/update-password", (0, middleware_1.authintication)(), (0, validation_middleware_1.validation)(validators.updatePasswordSchema), async (req, res, next) => {
+    const result = await user_service_1.default.updatePassword(req.body, req.user, `${req.protocol}://${req.host}`);
+    return (0, response_1.successResponse)({
+        res,
+        status: 200,
+        result,
+    });
 });
 exports.default = router;

@@ -44,8 +44,8 @@ export class RedisService {
     userId,
     jti,
   }: {
-    userId: string | Types.ObjectId | string;
-    jti: number;
+    userId: string | Types.ObjectId;
+    jti: string;
   }) {
     return `${this.baseRevokeTokenKey(userId)}:${jti}`;
   }
@@ -152,7 +152,7 @@ export class RedisService {
   public async deleteKey(key: string | string[]) {
     try {
       const result = await this.client.del(key);
-      return result === 1;
+      return result > 0;
     } catch (error) {
       console.error("Redis DELETE error:", error);
       return false;

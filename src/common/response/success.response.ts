@@ -9,7 +9,7 @@ export const successResponse = <T>({
   res: Response;
   message?: string;
   status?: number;
-  result: T;
+  result?: T;
 }) => {
   return res.status(status).json({ message, status, result });
 };
