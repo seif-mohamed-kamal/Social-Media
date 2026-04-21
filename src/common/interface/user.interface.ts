@@ -17,5 +17,7 @@ export interface IUser{
     DOB?:Date;
     confirmEmail?:Date;
     createdAt?:Date;
+    deletedAt?:Date;
+    restoredAt?:Date
     updatedAt?:Date;
 }

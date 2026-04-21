@@ -19,6 +19,12 @@ class DataBaseRepository {
             doc.lean(options.lean);
         return await doc.exec();
     }
+    async find({ filter, projection, options, }) {
+        const doc = this.model.find(filter, projection);
+        if (options?.lean)
+            doc.lean(options.lean);
+        return await doc.exec();
+    }
     async findById({ _id, projection, options, }) {
         const doc = this.model.findOne(_id, projection);
         if (options?.lean)
@@ -26,18 +32,18 @@ class DataBaseRepository {
         return await doc.exec();
     }
     async updateOne({ filter, update, options, }) {
-        return this.model.updateOne(filter, update, options);
+        return this.model.updateOne(filter, { ...update, $inc: { __v: 1 } }, options);
     }
     async findOneAndUpdate({ filter, update, options = { new: true }, }) {
-        return this.model.findOneAndUpdate(filter, update, options);
+        return this.model.findOneAndUpdate(filter, { ...update, $inc: { __v: 1 } }, options);
     }
     async findByIdAndUpdate({ _id, update, options = { new: true }, }) {
-        return this.model.findByIdAndUpdate(_id, update, options);
+        return this.model.findByIdAndUpdate(_id, { ...update, $inc: { __v: 1 } }, options);
     }
     async updateMany({ filter, update, options, }) {
-        return this.model.updateMany(filter, update, options);
+        return this.model.updateMany(filter, { ...update, $inc: { __v: 1 } }, options);
     }
-    async deleteOne({ filter }) {
+    async deleteOne({ filter, }) {
         return this.model.deleteOne(filter);
     }
     async findOneAndDelete({ filter, }) {

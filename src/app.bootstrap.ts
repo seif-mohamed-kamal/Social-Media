@@ -5,6 +5,7 @@ import { port } from "./config/config.service";
 import { connectToDB } from "./DB";
 import { redisService } from "./common/service";
 import cors from "cors";
+
 const bootstrap = async () => {
   const app: express.Express = express();
 

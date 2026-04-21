@@ -81,6 +81,20 @@ export abstract class DataBaseRepository<T> {
     return await doc.exec();
   }
 
+  async find({
+    filter,
+    projection,
+    options,
+  }: {
+    filter?: QueryFilter<T>;
+    projection?: ProjectionType<T> | null | undefined;
+    options?: QueryOptions<T> | null | undefined;
+  }): Promise<HydratedDocument<T>[]> {
+    const doc = this.model.find(filter, projection);
+    if (options?.lean) doc.lean(options.lean);
+    return await doc.exec();
+  }
+
   //findById
   async findById({
     _id,
@@ -124,31 +138,35 @@ export abstract class DataBaseRepository<T> {
     update: UpdateQuery<T> | UpdateWithAggregationPipeline;
     options?: UpdateOptions | null;
   }): Promise<UpdateResult> {
-    return this.model.updateOne(filter, update, options);
+    return this.model.updateOne(
+      filter,
+      { ...update, $inc: { __v: 1 } },
+      options
+    );
   }
 
   async findOneAndUpdate({
     filter,
     update,
-    options = {new: true},
+    options = { new: true },
   }: {
-    filter: Query<any, any>,
-    update: UpdateQuery<T>,
-    options: QueryOptions<T>  & ReturnsNewDoc
+    filter: Query<any, any>;
+    update: UpdateQuery<T>;
+    options: QueryOptions<T> & ReturnsNewDoc;
   }): Promise<HydratedDocument<T> | null> {
-    return this.model.findOneAndUpdate(filter, update, options);
+    return this.model.findOneAndUpdate(filter,  { ...update, $inc: { __v: 1 } }, options);
   }
 
   async findByIdAndUpdate({
     _id,
     update,
-    options = {new: true},
+    options = { new: true },
   }: {
-    _id: Types.ObjectId,
-    update: UpdateQuery<T>,
-    options: QueryOptions<T>  & ReturnsNewDoc
+    _id: Types.ObjectId;
+    update: UpdateQuery<T>;
+    options: QueryOptions<T> & ReturnsNewDoc;
   }): Promise<HydratedDocument<T> | null> {
-    return this.model.findByIdAndUpdate(_id, update, options);
+    return this.model.findByIdAndUpdate(_id,  { ...update, $inc: { __v: 1 } }, options);
   }
 
   async updateMany({
@@ -160,12 +178,12 @@ export abstract class DataBaseRepository<T> {
     update: UpdateQuery<T> | UpdateWithAggregationPipeline;
     options?: UpdateOptions | null;
   }): Promise<UpdateResult> {
-    return this.model.updateMany(filter, update, options);
+    return this.model.updateMany(filter,  { ...update, $inc: { __v: 1 } }, options);
   }
 
   //delete
   async deleteOne({
-    filter
+    filter,
   }: {
     filter: QueryFilter<T>;
   }): Promise<DeleteResult> {
@@ -175,7 +193,7 @@ export abstract class DataBaseRepository<T> {
   async findOneAndDelete({
     filter,
   }: {
-    filter: Query<any, any>,
+    filter: Query<any, any>;
   }): Promise<HydratedDocument<T> | null> {
     return this.model.findOneAndDelete(filter);
   }
@@ -183,7 +201,7 @@ export abstract class DataBaseRepository<T> {
   async findByIdAndDelete({
     _id,
   }: {
-    _id: Types.ObjectId,
+    _id: Types.ObjectId;
   }): Promise<HydratedDocument<T> | null> {
     return this.model.findByIdAndDelete(_id);
   }

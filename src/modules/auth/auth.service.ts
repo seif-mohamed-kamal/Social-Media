@@ -14,7 +14,6 @@ import {
 import { userRepository } from "../../DB/repository";
 import {
   comapareeHash,
-  generateEncrypt,
   generateHash,
 } from "../../common/utils/security";
 import { otpEmailTemplate, sendEmail } from "../../common/utils/mailer";
@@ -109,8 +108,8 @@ class AuthinticationService {
     const result: HydratedDocument<IUser> = await this.userModel.createOne({
       data: {
         email,
-        phone: await generateEncrypt(phone),
-        password: await generateHash({ plainText: password }),
+        phone,
+        password,
         username,
       },
     });

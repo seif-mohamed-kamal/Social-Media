@@ -66,8 +66,8 @@ class AuthinticationService {
         const result = await this.userModel.createOne({
             data: {
                 email,
-                phone: await (0, security_1.generateEncrypt)(phone),
-                password: await (0, security_1.generateHash)({ plainText: password }),
+                phone,
+                password,
                 username,
             },
         });
